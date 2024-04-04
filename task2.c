@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     MPI_Status status;
 
     chunksize = atoi(argv[1]);
-    //a=(float*) malloc((N*N/10)*sizeof(float));
+
     if(rank == MASTER)
     {
         a=(float *) malloc(chunksize*sizeof(float));
@@ -46,6 +46,7 @@ int main(int argc, char** argv) {
         int endNum = chunksize - 1;
 
         int index = 0;
+        int finalPart;
 
         for(int i = 1; i <= nump; i++)
         {
@@ -63,7 +64,7 @@ int main(int argc, char** argv) {
             MPI_Send(&startNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
             MPI_Send(&endNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
 
-            if( (N*N - endNum) > chunksize)
+            if( (N*N - endNum) > chunksize) //If there is still more than the chunksize to go in the sequence
             {
                 for(int i = 0; i < chunksize; i++)
                 {
@@ -74,17 +75,19 @@ int main(int argc, char** argv) {
                 startNum += chunksize;
                 endNum += chunksize;
             }
-            else
+            else //If the end of the set has been reached, hand out the last parcel of work
             {
                 startNum += chunksize;
                 endNum = N*N;
 
                 MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+                finalPart = status.MPI_SOURCE;
 
-                MPI_Send(&startNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
-                MPI_Send(&endNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
+                MPI_Send(&startNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD);
+                MPI_Send(&endNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD);
 
-                for(int i = 0; i < (endNum - startNum); i++)
+//              for(int i = 0; i < (endNum - startNum); i++)
+                for(int i = 0; i < chunksize; i++)
                 {
                     x[index] = a[i];
                     index++;
@@ -92,9 +95,24 @@ int main(int argc, char** argv) {
             }
         }
 
+        int endSig = -1; //Needs to be a variable rather than a constant as it needs an address
+
+        //Receive the last parcel of work from each worker thread and send a -1 to tell them to quit
         for(int i = 1; i <= nump; i++)
         {
+            MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+            MPI_Send(&endSig, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
 
+            int end;
+            if(status.MPI_SOURCE == finalPart) end = (endNum - startNum);
+            else end == chunksize;
+
+            //Write the last parcel of the given thread to the main array
+            for (int i = 0; i < end; i++)
+            {
+                x[index] = a[i];
+                index++;
+            }
         }
 
         free(a);
@@ -102,7 +120,7 @@ int main(int argc, char** argv) {
     }
     else //Worker
     {
-        int startNum;
+        int startNum, endNum;
         bool done = false;
 
         while(!done)
@@ -110,6 +128,8 @@ int main(int argc, char** argv) {
             a=(float *) malloc(chunksize*sizeof(float));
             MPI_Recv(&startNum, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, NULL);
 
+            /* Worker threads will receive a negative integer (-1) if there is no more work to do, signifying them to
+             * stop iterating */
             if(startNum < 0) done = true;
             else
             {
@@ -135,24 +155,7 @@ int main(int argc, char** argv) {
         }
     }
 
-
-/*    for (loop=0 + (rank * N*N/10); loop< (rank+1)*N*N/10; loop++) {
-	    i=loop%N;
-	    j=loop/N;
-
-	    z=kappa= (4.0*(i-N/2))/N + (4.0*(j-N/2))/N * I;
-
-	    k=1;
-	    while ((cabs(z)<=2) && (k++<MAXITER))
-	        z= z*z + kappa;
-
-	    a[loop - (rank *N*N/10)]= log((float)k) / log((float)MAXITER);
-    }
-*/
-//    MPI_Gather(a, (N*N/10), MPI_FLOAT, x, (N*N/10), MPI_FLOAT, 0, MPI_COMM_WORLD);
-
 /* ----------------------------------------------------------------*/
-
 
     if(rank == MASTER){
 
@@ -175,7 +178,6 @@ int main(int argc, char** argv) {
 
 /* ----------------------------------------------------------------*/
 
-    //free(a);
     if(rank==MASTER) free(x);
     MPI_Finalize();
 }
