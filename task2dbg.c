@@ -1,6 +1,6 @@
 
 #define MAXITER 1000
-#define N	8000
+#define N	6000
 #define MASTER	0
 #include <stdbool.h>
 #include <stdio.h>
@@ -51,7 +51,9 @@ int main(int argc, char** argv) {
         for(int i = 1; i < nump; i++)
         {
             MPI_Send(&startNum, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+	    printf("Send %d to process %d\n", startNum,i);
             MPI_Send(&endNum, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+	    printf("Send %d to process %d\n", endNum,i);
 
             startNum += chunksize;
             endNum += chunksize;
@@ -60,9 +62,12 @@ int main(int argc, char** argv) {
         while(endNum < N*N)
         {
             MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
+	    printf("Recv parcel from process %d\n", status.MPI_SOURCE);
 
             MPI_Send(&startNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
+	    printf("Send %d to process %d\n", startNum, status.MPI_SOURCE);
             MPI_Send(&endNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
+	    printf("Send %d to process %d\n", endNum, status.MPI_SOURCE);
 
             if( (N*N - endNum) > chunksize) //If there is still more than the chunksize to go in the sequence
             {
@@ -123,9 +128,9 @@ int main(int argc, char** argv) {
         int startNum, endNum;
         bool done = false;
 
+        a=(float *) malloc(chunksize*sizeof(float));
         while(!done)
         {
-            a=(float *) malloc(chunksize*sizeof(float));
             MPI_Recv(&startNum, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, &status);
 
             /* Worker threads will receive a negative integer (-1) if there is no more work to do, signifying them to
@@ -151,8 +156,9 @@ int main(int argc, char** argv) {
                 MPI_Send(a, chunksize, MPI_FLOAT, MASTER, 0, MPI_COMM_WORLD);
             }
 
-            free(a);
         }
+        
+	free(a);
     }
 
 /* ----------------------------------------------------------------*/
