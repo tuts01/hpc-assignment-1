@@ -1,6 +1,6 @@
 
 #define MAXITER 1000
-#define N	6000
+#define N	8000
 #define MASTER	0
 #include <stdbool.h>
 #include <stdio.h>
@@ -34,7 +34,6 @@ int main(int argc, char** argv) {
     }
 
     MPI_Status status;
-    MPI_Request request;
 
     chunksize = atoi(argv[1]);
 
@@ -51,13 +50,8 @@ int main(int argc, char** argv) {
 
         for(int i = 1; i < nump; i++)
         {
-	    fflush(stdin);
-            int startSend = startNum;
-	    int endSend = endNum;
-            MPI_Isend(&startSend, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request);
-	    printf("Send %d to process %d\n", startNum,i);
-            MPI_Isend(&endSend, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request);
-	    printf("Send %d to process %d\n", endNum,i);
+            MPI_Send(&startNum, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            MPI_Send(&endNum, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 
             startNum += chunksize;
             endNum += chunksize;
@@ -65,16 +59,10 @@ int main(int argc, char** argv) {
 
         while(endNum < N*N)
         {
-	    fflush(stdin);
-            MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
-	    printf("Recv parcel from process %d\n", status.MPI_SOURCE);
+            MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
 
-            int startSend = startNum;
-	    int endSend = endNum;
-            MPI_Isend(&startSend, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD, &request);
-	    printf("Send %d to process %d\n", startNum, status.MPI_SOURCE);
-            MPI_Isend(&endSend, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD, &request);
-	    printf("Send %d to process %d\n", endNum, status.MPI_SOURCE);
+            MPI_Send(&startNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
+            MPI_Send(&endNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
 
             if( (N*N - endNum) > chunksize) //If there is still more than the chunksize to go in the sequence
             {
@@ -92,14 +80,11 @@ int main(int argc, char** argv) {
                 startNum += chunksize;
                 endNum = N*N;
 
-            	int startSend = startNum;
-	    	int endSend = endNum;
-                
-		MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+                MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
                 finalPart = status.MPI_SOURCE;
 
-                MPI_Isend(&startNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD, &request);
-                MPI_Isend(&endNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD, &request);
+                MPI_Send(&startNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD);
+                MPI_Send(&endNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD);
 
 //              for(int i = 0; i < (endNum - startNum); i++)
                 for(int i = 0; i < chunksize; i++)
@@ -115,7 +100,7 @@ int main(int argc, char** argv) {
         //Receive the last parcel of work from each worker thread and send a -1 to tell them to quit
         for(int i = 1; i <= nump; i++)
         {
-            MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+            MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD, &status);
             MPI_Send(&endSig, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
 
             int end;
@@ -138,9 +123,9 @@ int main(int argc, char** argv) {
         int startNum, endNum;
         bool done = false;
 
-        a=(float *) malloc(chunksize*sizeof(float));
         while(!done)
         {
+            a=(float *) malloc(chunksize*sizeof(float));
             MPI_Recv(&startNum, 1, MPI_INT, MASTER, 0, MPI_COMM_WORLD, &status);
 
             /* Worker threads will receive a negative integer (-1) if there is no more work to do, signifying them to
@@ -163,12 +148,11 @@ int main(int argc, char** argv) {
         	        a[loop - startNum]= log((float)k) / log((float)MAXITER);
                 }
 
-                MPI_Send(a, chunksize, MPI_FLOAT, MASTER, 1, MPI_COMM_WORLD);
+                MPI_Send(a, chunksize, MPI_FLOAT, MASTER, 0, MPI_COMM_WORLD);
             }
 
+            free(a);
         }
-        
-	free(a);
     }
 
 /* ----------------------------------------------------------------*/

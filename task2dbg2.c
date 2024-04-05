@@ -54,9 +54,9 @@ int main(int argc, char** argv) {
 	    fflush(stdin);
             int startSend = startNum;
 	    int endSend = endNum;
-            MPI_Isend(&startSend, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request);
+            MPI_Ssend(&startSend, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 	    printf("Send %d to process %d\n", startNum,i);
-            MPI_Isend(&endSend, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &request);
+            MPI_Ssend(&endSend, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
 	    printf("Send %d to process %d\n", endNum,i);
 
             startNum += chunksize;
@@ -71,9 +71,9 @@ int main(int argc, char** argv) {
 
             int startSend = startNum;
 	    int endSend = endNum;
-            MPI_Isend(&startSend, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD, &request);
+            MPI_Ssend(&startSend, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
 	    printf("Send %d to process %d\n", startNum, status.MPI_SOURCE);
-            MPI_Isend(&endSend, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD, &request);
+            MPI_Ssend(&endSend, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
 	    printf("Send %d to process %d\n", endNum, status.MPI_SOURCE);
 
             if( (N*N - endNum) > chunksize) //If there is still more than the chunksize to go in the sequence
@@ -98,8 +98,8 @@ int main(int argc, char** argv) {
 		MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
                 finalPart = status.MPI_SOURCE;
 
-                MPI_Isend(&startNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD, &request);
-                MPI_Isend(&endNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD, &request);
+                MPI_Ssend(&startNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD);
+                MPI_Ssend(&endNum, 1, MPI_INT, finalPart, 0, MPI_COMM_WORLD);
 
 //              for(int i = 0; i < (endNum - startNum); i++)
                 for(int i = 0; i < chunksize; i++)
