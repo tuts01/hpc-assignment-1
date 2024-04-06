@@ -46,53 +46,73 @@ int main(int argc, char** argv) {
         int endNum = chunksize - 1;
 
         int index = 0;
-        int finalPart;
+//        int finalPart;
 
         int iterations = (N*N) / chunksize;
-    int remainder = (N*N) % chunksize;
+        int remainder = (N*N) % chunksize;
+        if(remainder) iterations--;
 
         for(int i = 1; i < nump; i++)
         {
+	        printf("Sending %d to process %d\n", startNum,i);
             MPI_Send(&startNum, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+	        printf("Sent %d to process %d\n", startNum,i);
+	        printf("Sending %d to process %d\n", endNum,i);
             MPI_Send(&endNum, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            printf("Sent %d to process %d\n", endNum ,i);
 
             startNum += chunksize;
             endNum += chunksize;
+            puts("Exiting initial loop\n");
         }
 
-        for(int i = nump; i <= iterations; i++)
+        for(int i = nump; i < iterations; i++)
         {
+            
             MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	        printf("Recv parcel from process %d\n", status.MPI_SOURCE);
             MPI_Recv(&index, 1, MPI_INT, status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            printf("Recv index from process %d\n", status.MPI_SOURCE);
 
             for(int i = 0; i < chunksize ; i++) x[i+index] = a[i];
             
             startNum += chunksize;
             endNum += chunksize;
 
+	        printf("Sending %d to process %d\n", startNum,status.MPI_SOURCE);
             MPI_Send(&startNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
+	        printf("Sent %d to process %d\n", startNum, status.MPI_SOURCE);
+	        printf("Sending %d to process %d\n", endNum, status.MPI_SOURCE);
             MPI_Send(&endNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
+            printf("Sent %d to process %d\n", endNum, status.MPI_SOURCE);
         }
 
         if(remainder)
         {
-        
+            puts("Remainder\n");
+
             MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	        printf("Recv parcel from process %d\n", status.MPI_SOURCE);
             MPI_Recv(&index, 1, MPI_INT, status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            printf("Recv index from process %d\n", status.MPI_SOURCE);
 
             for(int i = 0; i < chunksize; i++) x[i+index] = a[i];
 
             startNum += chunksize;
             endNum = N*N;
 
+	        printf("Sending %d to process %d\n", startNum,i);
             MPI_Send(&startNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
-            MPI_Send(&endNum, 1, MPI_INT, status.MPI_SOURCE, 0, MPI_COMM_WORLD);
+	        printf("Sent %d to process %d\n", startNum,i);
+	        printf("Sending %d to process %d\n", endNum,i);
+            MPI_Send(&endNum, 1, MPI_INT, i, status.MPI_SOURCE, MPI_COMM_WORLD);
+            printf("Sent %d to process %d\n", startNum,i);
         }
 
         int endSig = -1; //Needs to be a variable rather than a constant as it needs an address
 
         //Receive the last parcel of work from each worker thread and send a -1 to tell them to quit
-        for(int i = 1; i <= nump; i++)
+        for(int i = 1; i < nump; i++)
         {
             MPI_Recv(a, chunksize, MPI_FLOAT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             MPI_Recv(&index, 1, MPI_INT, status.MPI_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -125,7 +145,7 @@ int main(int argc, char** argv) {
             {
                 MPI_Recv(&endNum, 1, MPI_INT, MASTER, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-                for (loop = startNum; loop < endNum; loop++) {
+                for (loop = startNum; loop <= endNum; loop++) {
                     i=loop%N;
                     j=loop/N;
 
