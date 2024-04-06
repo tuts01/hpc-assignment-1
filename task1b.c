@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
     int    nump; //Num of processes
     float  *x, *a;
     FILE   *fp;
+    double t, t1, t2, t3;
 
     float complex   z, kappa;
 
@@ -24,8 +25,16 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &nump);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
+    char* outfile_name = (char*)calloc(6, sizeof(char));
+    sprintf(outfile_name, "out%d", rank);
+    FILE* outfile = fopen(outfile_name, "a");
+
     a=(float*) malloc((N*N/10)*sizeof(float));
+
     if(rank == 0) x=(float *) malloc(N*N*sizeof(float));
+    
+    t = MPI_Wtime();
+
     for (loop=0 + (rank * N*N/10); loop< (rank+1)*N*N/10; loop++) {
 	    i=loop%N;
 	    j=loop/N;
@@ -38,30 +47,20 @@ int main(int argc, char** argv) {
 	  
 	    a[loop - (rank *N*N/10)]= log((float)k) / log((float)MAXITER);
     }
+    t1 = MPI_Wtime() - t;
+    
+    MPI_Barrier(MPI_COMM_WORLD);
+    t2 = MPI_Wtime() - t1 - t;
 
     MPI_Gather(a, (N*N/10), MPI_FLOAT, x, (N*N/10), MPI_FLOAT, 0, MPI_COMM_WORLD);
+    t3 = MPI_Wtime() - t2 - t1 - t;
+
+
 
 /* ----------------------------------------------------------------*/
 
-
-    if(rank == 0){
-
-        printf("Writing mandelbrot.ppm\n");
-        fp = fopen ("mandelbrot.ppm", "w");
-        fprintf (fp, "P3\n%4d %4d\n255\n", N, N);
-    
-        for (loop=0; loop<N*N; loop++) 
-	    if (x[loop]<0.5) {
-	        green= (int) (2*x[loop]*255);
-                fprintf (fp, "%3d\n%3d\n%3d\n", 255-green,green,0);
-	    } else {
-	        blue= (int) (2*x[loop]*255-255);
-                fprintf (fp, "%3d\n%3d\n%3d\n", 0,255-blue,blue);
-	    }
-    
-        fclose(fp);
-
-    }
+    fprintf(outfile, "Computation time:\t%f\nWait time:\t\t%f\nCommunication time:\t%f\n\n", t1, t2, t3);
+    fclose(outfile);
 
 /* ----------------------------------------------------------------*/
 
